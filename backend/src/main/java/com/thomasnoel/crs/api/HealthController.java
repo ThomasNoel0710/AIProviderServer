@@ -10,9 +10,8 @@ public class HealthController {
 
     @GetMapping
     public HealthResponse health() {
-        return new HealthResponse("ok", "crs-backend");
+        return new HealthResponse("ok", "CRS Backend");
     }
-
     public record HealthResponse(String status, String service) {
     }
 }

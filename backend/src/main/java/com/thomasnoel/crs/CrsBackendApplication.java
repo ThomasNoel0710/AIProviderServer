@@ -9,5 +9,4 @@ public class CrsBackendApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(CrsBackendApplication.class, args);
 	}
-
 }
