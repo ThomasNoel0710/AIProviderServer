@@ -21,10 +21,13 @@ export const theme = createTheme({
     fontFamily: 'Roboto, Arial, sans-serif',
     h3: {
       fontWeight: 500,
-      letterSpacing: '-0.03em',
+      letterSpacing: '-0.035em',
     },
     h6: {
       fontWeight: 500,
+    },
+    subtitle1: {
+      letterSpacing: '-0.01em',
     },
     button: {
       fontWeight: 500,
@@ -40,6 +43,11 @@ export const theme = createTheme({
         root: {
           backgroundImage: 'none',
         },
+      },
+    },
+    MuiTextField: {
+      defaultProps: {
+        autoComplete: 'off',
       },
     },
   },

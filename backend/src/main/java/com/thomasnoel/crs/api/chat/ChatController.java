@@ -20,7 +20,9 @@ public class ChatController {
     }
 
     @PostMapping
-    public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
+    public ChatResponse chat(
+        @Valid @RequestBody ChatRequest request
+    ) {
         return chatService.chat(request);
     }
 }

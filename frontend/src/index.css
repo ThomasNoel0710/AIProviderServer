@@ -1,14 +1,21 @@
 html {
   min-width: 320px;
   min-height: 100%;
+  background: #f8fafd;
 }
 
 body {
   min-width: 320px;
   min-height: 100%;
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
   min-height: 100%;
+}
+
+* {
+  box-sizing: border-box;
 }

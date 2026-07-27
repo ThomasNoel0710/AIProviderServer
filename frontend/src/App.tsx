@@ -1,84 +1,639 @@
-import ApiRoundedIcon from '@mui/icons-material/ApiRounded'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded'
-import CodeRoundedIcon from '@mui/icons-material/CodeRounded'
-import AppBar from '@mui/material/AppBar'
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
+import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded'
+import MenuOpenRoundedIcon from '@mui/icons-material/MenuOpenRounded'
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
+import Alert from '@mui/material/Alert'
+import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
-import Chip from '@mui/material/Chip'
-import Container from '@mui/material/Container'
+import CircularProgress from '@mui/material/CircularProgress'
+import Divider from '@mui/material/Divider'
+import IconButton from '@mui/material/IconButton'
+import List from '@mui/material/List'
+import ListItemButton from '@mui/material/ListItemButton'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import ListItemText from '@mui/material/ListItemText'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
-import Toolbar from '@mui/material/Toolbar'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { Route, Routes } from 'react-router'
+import { ApiError, sendChatMessage } from './services/api'
 
-const modules = [
-  {
-    icon: <CodeRoundedIcon color="primary" />,
-    title: 'React frontend',
-    detail: 'Vite, TypeScript and Material UI are ready.',
-  },
-  {
-    icon: <ApiRoundedIcon color="primary" />,
-    title: 'Spring Boot backend',
-    detail: 'The Java service exposes a basic health endpoint.',
-  },
-  {
-    icon: <AutoAwesomeRoundedIcon color="primary" />,
-    title: 'DeepSeek integration',
-    detail: 'Reserved for the next learning module.',
-  },
+const recentChats = [
+  'Spring Boot 学习',
+  'DeepSeek API 测试',
+  '后端开发计划',
 ]
 
-function HomePage() {
+function BrandMark({ size = 36 }: { size?: number }) {
   return (
-    <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
-      <AppBar
-        position="static"
-        color="transparent"
-        elevation={0}
-        sx={{ borderBottom: 1, borderColor: 'divider' }}
-      >
-        <Toolbar>
-          <AutoAwesomeRoundedIcon color="primary" sx={{ mr: 1.5 }} />
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            CRS
-          </Typography>
-          <Chip label="Project skeleton" size="small" variant="outlined" />
-        </Toolbar>
-      </AppBar>
+    <Box
+      sx={{
+        display: 'grid',
+        width: size,
+        height: size,
+        flexShrink: 0,
+        placeItems: 'center',
+        borderRadius: '12px',
+        color: 'common.white',
+        background:
+          'linear-gradient(135deg, #4285f4 0%, #5e97f6 48%, #7b61ff 100%)',
+        boxShadow: '0 5px 14px rgba(66, 133, 244, 0.22)',
+      }}
+    >
+      <AutoAwesomeRoundedIcon sx={{ fontSize: size * 0.55 }} />
+    </Box>
+  )
+}
 
-      <Container component="main" maxWidth="lg" sx={{ py: { xs: 6, md: 10 } }}>
-        <Stack spacing={2} sx={{ maxWidth: 720, mb: 6 }}>
-          <Typography variant="overline" color="primary.main">
-            Foundation module
+function SidebarItem({
+  icon,
+  label,
+  selected = false,
+  onClick,
+}: {
+  icon: ReactNode
+  label: string
+  selected?: boolean
+  onClick?: () => void
+}) {
+  return (
+    <ListItemButton
+      selected={selected}
+      aria-label={label}
+      onClick={onClick}
+      sx={{
+        minHeight: 44,
+        mx: { xs: 1, md: 1.5 },
+        px: { xs: 1.25, md: 1.5 },
+        borderRadius: 3,
+        justifyContent: { xs: 'center', md: 'flex-start' },
+        color: selected ? 'primary.dark' : 'text.primary',
+        '&.Mui-selected': {
+          bgcolor: '#d3e3fd',
+          '&:hover': { bgcolor: '#c9dcfa' },
+        },
+      }}
+    >
+      <ListItemIcon
+        sx={{
+          minWidth: { xs: 0, md: 38 },
+          color: 'inherit',
+          justifyContent: 'center',
+        }}
+      >
+        {icon}
+      </ListItemIcon>
+      <ListItemText
+        primary={label}
+        sx={{ display: { xs: 'none', md: 'block' } }}
+        slotProps={{
+          primary: {
+            variant: 'body2',
+            noWrap: true,
+          },
+        }}
+      />
+    </ListItemButton>
+  )
+}
+
+function Sidebar({ onNewChat }: { onNewChat: () => void }) {
+  return (
+    <Box
+      component="aside"
+      sx={{
+        width: { xs: 76, md: 280 },
+        height: '100dvh',
+        flexShrink: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        borderRight: '1px solid',
+        borderColor: '#e3e7ee',
+        bgcolor: '#f4f7fc',
+        overflow: 'hidden',
+      }}
+    >
+      <Stack
+        direction="row"
+        spacing={1.25}
+        sx={{
+          minHeight: 76,
+          px: { xs: 2.5, md: 2.25 },
+          alignItems: 'center',
+        }}
+      >
+        <BrandMark />
+        <Typography
+          variant="h6"
+          sx={{ display: { xs: 'none', md: 'block' }, letterSpacing: '-0.02em' }}
+        >
+          CRS
+        </Typography>
+      </Stack>
+
+      <List disablePadding>
+        <SidebarItem
+          selected
+          icon={<AddRoundedIcon />}
+          label="新对话"
+          onClick={onNewChat}
+        />
+        <SidebarItem icon={<SearchRoundedIcon />} label="搜索对话" />
+      </List>
+
+      <Paper
+        variant="outlined"
+        sx={{
+          mx: { xs: 1, md: 1.5 },
+          mt: 2,
+          p: { xs: 1.15, md: 1.25 },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: { xs: 'center', md: 'flex-start' },
+          gap: 1.25,
+          borderRadius: 3,
+          borderColor: '#dfe4ec',
+          bgcolor: 'rgba(255, 255, 255, 0.78)',
+        }}
+      >
+        <AutoAwesomeRoundedIcon
+          color="primary"
+          sx={{ flexShrink: 0, fontSize: 20 }}
+        />
+        <Box
+          sx={{
+            minWidth: 0,
+            flexGrow: 1,
+            display: { xs: 'none', md: 'block' },
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            当前模型
           </Typography>
-          <Typography component="h1" variant="h3">
-            A clean foundation for your AI chat project.
+          <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+            DeepSeek V4 Flash
           </Typography>
-          <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 400 }}>
-            The frontend and backend are separated, runnable and ready for us to
-            expand one module at a time.
+        </Box>
+        <ExpandMoreRoundedIcon
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            color: 'text.secondary',
+            fontSize: 20,
+          }}
+        />
+      </Paper>
+
+      <Box
+        sx={{
+          flexGrow: 1,
+          minHeight: 0,
+          mt: 3,
+          overflowY: 'auto',
+        }}
+      >
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            px: 3,
+            mb: 0.75,
+            fontWeight: 500,
+          }}
+        >
+          最近
+        </Typography>
+        <List disablePadding>
+          {recentChats.map((chat) => (
+            <SidebarItem
+              key={chat}
+              icon={<ChatBubbleOutlineRoundedIcon sx={{ fontSize: 19 }} />}
+              label={chat}
+            />
+          ))}
+        </List>
+      </Box>
+
+      <Divider sx={{ mx: 2, borderColor: '#dfe4ec' }} />
+
+      <List disablePadding sx={{ py: 1 }}>
+        <SidebarItem icon={<HelpOutlineRoundedIcon />} label="帮助" />
+        <SidebarItem icon={<SettingsOutlinedIcon />} label="设置" />
+      </List>
+
+      <Stack
+        direction="row"
+        spacing={1.25}
+        sx={{
+          minHeight: 72,
+          px: { xs: 2.25, md: 2 },
+          borderTop: '1px solid',
+          borderColor: '#e3e7ee',
+          alignItems: 'center',
+          justifyContent: { xs: 'center', md: 'flex-start' },
+        }}
+      >
+        <Avatar
+          sx={{
+            width: 34,
+            height: 34,
+            bgcolor: '#1a73e8',
+            fontSize: '0.9rem',
+          }}
+        >
+          T
+        </Avatar>
+        <Box
+          sx={{
+            minWidth: 0,
+            flexGrow: 1,
+            display: { xs: 'none', md: 'block' },
+          }}
+        >
+          <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+            Thomas
           </Typography>
-        </Stack>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            本地账户
+          </Typography>
+        </Box>
+        <ExpandMoreRoundedIcon
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            color: 'text.secondary',
+            fontSize: 20,
+          }}
+        />
+      </Stack>
+    </Box>
+  )
+}
+
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+function MessageBubble({ message }: { message: ChatMessage }) {
+  const isUser = message.role === 'user'
+
+  return (
+    <Stack
+      direction="row"
+      spacing={1.25}
+      sx={{
+        width: '100%',
+        alignItems: 'flex-start',
+        justifyContent: isUser ? 'flex-end' : 'flex-start',
+      }}
+    >
+      {!isUser && <BrandMark size={32} />}
+      <Paper
+        variant={isUser ? undefined : 'outlined'}
+        elevation={0}
+        sx={{
+          maxWidth: 'min(680px, 82%)',
+          px: 2,
+          py: 1.5,
+          borderColor: '#e0e4ea',
+          borderRadius: isUser ? '20px 6px 20px 20px' : '6px 20px 20px 20px',
+          bgcolor: isUser ? '#e8f0fe' : 'background.paper',
+        }}
+      >
+        <Typography
+          component="div"
+          sx={{
+            lineHeight: 1.72,
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {message.content}
+        </Typography>
+      </Paper>
+    </Stack>
+  )
+}
+
+function ThinkingBubble() {
+  return (
+    <Stack
+      direction="row"
+      spacing={1.25}
+      sx={{ width: '100%', alignItems: 'flex-start' }}
+    >
+      <BrandMark size={32} />
+      <Paper
+        variant="outlined"
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.25,
+          px: 2,
+          py: 1.5,
+          borderColor: '#e0e4ea',
+          borderRadius: '6px 20px 20px 20px',
+        }}
+      >
+        <CircularProgress size={17} thickness={5} />
+        <Typography color="text.secondary" variant="body2">
+          正在思考…
+        </Typography>
+      </Paper>
+    </Stack>
+  )
+}
+
+function ChatHomePage() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [draft, setDraft] = useState('')
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [isSending, setIsSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const requestControllerRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isSending, error])
+
+  useEffect(() => {
+    return () => requestControllerRef.current?.abort()
+  }, [])
+
+  const startNewChat = () => {
+    requestControllerRef.current?.abort()
+    requestControllerRef.current = null
+    setMessages([])
+    setDraft('')
+    setError(null)
+    setIsSending(false)
+  }
+
+  const sendMessage = async () => {
+    const message = draft.trim()
+
+    if (!message || isSending) {
+      return
+    }
+
+    const controller = new AbortController()
+    requestControllerRef.current = controller
+
+    setMessages((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: message,
+      },
+    ])
+    setDraft('')
+    setError(null)
+    setIsSending(true)
+
+    try {
+      const response = await sendChatMessage(message, controller.signal)
+
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: response.message,
+        },
+      ])
+    } catch (requestError) {
+      if (
+        requestError instanceof DOMException
+        && requestError.name === 'AbortError'
+      ) {
+        return
+      }
+
+      setError(
+        requestError instanceof ApiError
+          ? requestError.message
+          : '发送消息时出现了未知错误，请稍后重试。',
+      )
+    } finally {
+      if (requestControllerRef.current === controller) {
+        requestControllerRef.current = null
+        setIsSending(false)
+      }
+    }
+  }
+
+  return (
+    <Box
+      sx={{
+        minHeight: '100dvh',
+        display: 'flex',
+        bgcolor: '#ffffff',
+      }}
+    >
+      {isSidebarOpen && <Sidebar onNewChat={startNewChat} />}
+
+      <Box
+        component="main"
+        sx={{
+          position: 'relative',
+          minWidth: 0,
+          height: '100dvh',
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          background:
+            'radial-gradient(circle at 50% 36%, rgba(232, 240, 254, 0.65), transparent 32%), #ffffff',
+        }}
+      >
+        <IconButton
+          onClick={() => setIsSidebarOpen((open) => !open)}
+          aria-label={isSidebarOpen ? '收起侧边栏' : '展开侧边栏'}
+          title={isSidebarOpen ? '收起侧边栏' : '展开侧边栏'}
+          sx={{
+            position: 'absolute',
+            top: 16,
+            left: 16,
+            zIndex: 2,
+            width: 42,
+            height: 42,
+            border: '1px solid',
+            borderColor: '#e0e4ea',
+            bgcolor: 'rgba(255, 255, 255, 0.9)',
+            boxShadow: '0 2px 8px rgba(60, 64, 67, 0.08)',
+            '&:hover': { bgcolor: '#f1f5fb' },
+          }}
+        >
+          {isSidebarOpen ? <MenuOpenRoundedIcon /> : <MenuRoundedIcon />}
+        </IconButton>
 
         <Box
           sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-            gap: 2,
+            flexGrow: 1,
+            minHeight: 0,
+            overflowY: 'auto',
           }}
         >
-          {modules.map((module) => (
-            <Paper key={module.title} variant="outlined" sx={{ p: 3, minHeight: 190 }}>
-              <Stack spacing={2}>
-                {module.icon}
-                <Typography variant="h6">{module.title}</Typography>
-                <Typography color="text.secondary">{module.detail}</Typography>
-              </Stack>
-            </Paper>
-          ))}
+          {messages.length === 0 && !isSending ? (
+            <Box
+              sx={{
+                height: '100%',
+                display: 'grid',
+                placeItems: 'center',
+                px: 3,
+                pb: { xs: 8, sm: 11 },
+              }}
+            >
+              <Typography
+                component="h1"
+                variant="h3"
+                sx={{
+                  textAlign: 'center',
+                  fontSize: { xs: '2rem', sm: '2.7rem', lg: '3rem' },
+                  background:
+                    'linear-gradient(90deg, #1a73e8 0%, #7b61ff 55%, #d96570 100%)',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                }}
+              >
+                今天想聊点什么？
+              </Typography>
+            </Box>
+          ) : (
+            <Stack
+              spacing={2.75}
+              sx={{
+                width: '100%',
+                maxWidth: 820,
+                mx: 'auto',
+                px: { xs: 2, sm: 3 },
+                pt: { xs: 9, sm: 10 },
+                pb: 3,
+              }}
+            >
+              {messages.map((message) => (
+                <MessageBubble key={message.id} message={message} />
+              ))}
+              {isSending && <ThinkingBubble />}
+              <Box ref={messagesEndRef} />
+            </Stack>
+          )}
         </Box>
-      </Container>
+
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: 820,
+            mx: 'auto',
+            px: { xs: 2, sm: 3 },
+            pb: { xs: 2, sm: 3 },
+          }}
+        >
+          {error && (
+            <Alert
+              severity="error"
+              onClose={() => setError(null)}
+              sx={{ mb: 1.5, borderRadius: 3 }}
+            >
+              {error}
+            </Alert>
+          )}
+
+          <Paper
+            component="form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void sendMessage()
+            }}
+            elevation={0}
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: 1,
+              p: 1,
+              pl: 2.25,
+              border: '1px solid',
+              borderColor: '#dfe3e7',
+              borderRadius: 5,
+              bgcolor: 'background.paper',
+              boxShadow:
+                '0 1px 2px rgba(60, 64, 67, 0.08), 0 10px 30px rgba(60, 64, 67, 0.1)',
+            }}
+          >
+            <TextField
+              fullWidth
+              multiline
+              maxRows={5}
+              value={draft}
+              disabled={isSending}
+              placeholder={isSending ? '等待回复…' : '输入消息'}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === 'Enter'
+                  && !event.shiftKey
+                  && !event.nativeEvent.isComposing
+                ) {
+                  event.preventDefault()
+                  void sendMessage()
+                }
+              }}
+              variant="standard"
+              slotProps={{
+                htmlInput: {
+                  'aria-label': '输入消息',
+                },
+                input: {
+                  disableUnderline: true,
+                  sx: {
+                    py: 1,
+                    fontSize: '1rem',
+                    lineHeight: 1.55,
+                  },
+                },
+              }}
+            />
+            <IconButton
+              type="submit"
+              disabled={!draft.trim() || isSending}
+              aria-label="发送消息"
+              sx={{
+                width: 42,
+                height: 42,
+                mb: 0.15,
+                bgcolor: 'primary.main',
+                color: 'common.white',
+                '&:hover': { bgcolor: 'primary.dark' },
+                '&.Mui-disabled': {
+                  bgcolor: '#e8eaed',
+                  color: '#9aa0a6',
+                },
+              }}
+            >
+              {isSending ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <ArrowUpwardRoundedIcon />
+              )}
+            </IconButton>
+          </Paper>
+        </Box>
+      </Box>
     </Box>
   )
 }
@@ -86,7 +641,7 @@ function HomePage() {
 export default function App() {
   return (
     <Routes>
-      <Route path="*" element={<HomePage />} />
+      <Route path="*" element={<ChatHomePage />} />
     </Routes>
   )
 }
