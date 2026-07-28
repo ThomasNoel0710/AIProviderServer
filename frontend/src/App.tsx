@@ -32,9 +32,9 @@ import { Route, Routes } from 'react-router'
 import { ApiError, sendChatMessage } from './services/api'
 
 const recentChats = [
-  'Spring Boot 学习',
-  'DeepSeek API 测试',
-  '后端开发计划',
+  'Learning Spring Boot',
+  'Testing the DeepSeek API',
+  'Backend Development Plan',
 ]
 
 function BrandMark({ size = 36 }: { size?: number }) {
@@ -148,10 +148,10 @@ function Sidebar({ onNewChat }: { onNewChat: () => void }) {
         <SidebarItem
           selected
           icon={<AddRoundedIcon />}
-          label="新对话"
+          label="New chat"
           onClick={onNewChat}
         />
-        <SidebarItem icon={<SearchRoundedIcon />} label="搜索对话" />
+        <SidebarItem icon={<SearchRoundedIcon />} label="Search chats" />
       </List>
 
       <Paper
@@ -181,7 +181,7 @@ function Sidebar({ onNewChat }: { onNewChat: () => void }) {
           }}
         >
           <Typography variant="caption" color="text.secondary">
-            当前模型
+            Current model
           </Typography>
           <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
             DeepSeek V4 Flash
@@ -214,7 +214,7 @@ function Sidebar({ onNewChat }: { onNewChat: () => void }) {
             fontWeight: 500,
           }}
         >
-          最近
+          Recent
         </Typography>
         <List disablePadding>
           {recentChats.map((chat) => (
@@ -230,8 +230,8 @@ function Sidebar({ onNewChat }: { onNewChat: () => void }) {
       <Divider sx={{ mx: 2, borderColor: '#dfe4ec' }} />
 
       <List disablePadding sx={{ py: 1 }}>
-        <SidebarItem icon={<HelpOutlineRoundedIcon />} label="帮助" />
-        <SidebarItem icon={<SettingsOutlinedIcon />} label="设置" />
+        <SidebarItem icon={<HelpOutlineRoundedIcon />} label="Help" />
+        <SidebarItem icon={<SettingsOutlinedIcon />} label="Settings" />
       </List>
 
       <Stack
@@ -267,7 +267,7 @@ function Sidebar({ onNewChat }: { onNewChat: () => void }) {
             Thomas
           </Typography>
           <Typography variant="caption" color="text.secondary" noWrap>
-            本地账户
+            Local account
           </Typography>
         </Box>
         <ExpandMoreRoundedIcon
@@ -351,7 +351,7 @@ function ThinkingBubble() {
       >
         <CircularProgress size={17} thickness={5} />
         <Typography color="text.secondary" variant="body2">
-          正在思考…
+          Thinking…
         </Typography>
       </Paper>
     </Stack>
@@ -428,7 +428,7 @@ function ChatHomePage() {
       setError(
         requestError instanceof ApiError
           ? requestError.message
-          : '发送消息时出现了未知错误，请稍后重试。',
+          : 'An unexpected error occurred while sending the message. Please try again.',
       )
     } finally {
       if (requestControllerRef.current === controller) {
@@ -463,8 +463,8 @@ function ChatHomePage() {
       >
         <IconButton
           onClick={() => setIsSidebarOpen((open) => !open)}
-          aria-label={isSidebarOpen ? '收起侧边栏' : '展开侧边栏'}
-          title={isSidebarOpen ? '收起侧边栏' : '展开侧边栏'}
+          aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
           sx={{
             position: 'absolute',
             top: 16,
@@ -511,7 +511,7 @@ function ChatHomePage() {
                   color: 'transparent',
                 }}
               >
-                今天想聊点什么？
+                What would you like to talk about today?
               </Typography>
             </Box>
           ) : (
@@ -581,7 +581,7 @@ function ChatHomePage() {
               maxRows={5}
               value={draft}
               disabled={isSending}
-              placeholder={isSending ? '等待回复…' : '输入消息'}
+              placeholder={isSending ? 'Waiting for a response…' : 'Type a message'}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (
@@ -596,7 +596,7 @@ function ChatHomePage() {
               variant="standard"
               slotProps={{
                 htmlInput: {
-                  'aria-label': '输入消息',
+                  'aria-label': 'Message input',
                 },
                 input: {
                   disableUnderline: true,
@@ -611,7 +611,7 @@ function ChatHomePage() {
             <IconButton
               type="submit"
               disabled={!draft.trim() || isSending}
-              aria-label="发送消息"
+              aria-label="Send message"
               sx={{
                 width: 42,
                 height: 42,

@@ -32,14 +32,14 @@ function isChatResponse(value: unknown): value is ChatResponse {
 
 function getHttpErrorMessage(status: number) {
   if (status === 400) {
-    return '消息内容无效，请检查后重试。'
+    return 'The message is invalid. Please check it and try again.'
   }
 
   if (status >= 500) {
-    return 'AI 服务暂时不可用，请稍后重试。'
+    return 'The AI service is temporarily unavailable. Please try again later.'
   }
 
-  return `请求失败（HTTP ${status}）。`
+  return `The request failed (HTTP ${status}).`
 }
 
 export async function sendChatMessage(
@@ -63,7 +63,11 @@ export async function sendChatMessage(
       throw error
     }
 
-    throw new ApiError('无法连接后端服务，请确认后端已经启动。', undefined, error)
+    throw new ApiError(
+      'Unable to connect to the backend. Make sure it is running.',
+      undefined,
+      error,
+    )
   }
 
   if (!response.ok) {
@@ -76,7 +80,7 @@ export async function sendChatMessage(
     responseBody = await response.json()
   } catch (error) {
     throw new ApiError(
-      '后端返回了无法识别的数据。',
+      'The backend returned an unrecognized response.',
       response.status,
       error,
     )
@@ -84,7 +88,7 @@ export async function sendChatMessage(
 
   if (!isChatResponse(responseBody)) {
     throw new ApiError(
-      '后端响应中缺少有效的 AI 回答。',
+      'The backend response does not contain a valid AI answer.',
       response.status,
     )
   }

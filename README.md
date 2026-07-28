@@ -1,47 +1,58 @@
 # CRS
 
-CRS 是一个用于学习和构建 AI 聊天服务的前后端分离项目。
+CRS is a full-stack project for learning how to build an AI chat service.
 
-当前阶段只包含可运行的项目骨架，不包含 DeepSeek 调用、聊天逻辑、数据库或用户系统。
+The current MVP provides a local, single-turn chat experience backed by the
+DeepSeek API. Conversation persistence, multi-turn context, user accounts, and
+streaming responses are not implemented yet.
 
-## 技术栈
+## Technology Stack
 
-- 前端：React、Vite、TypeScript、Material UI
-- 后端：Java 21、Spring Boot、Maven
-- 通信：后续使用 HTTP 和 SSE
+- Frontend: React, Vite, TypeScript, and Material UI
+- Backend: Java 21, Spring Boot, and Maven
+- Communication: HTTP, with SSE planned for streaming responses
 
-## 目录结构
+## Project Structure
 
 ```text
 CRS/
-├── frontend/   React 单页面应用
-├── backend/    Spring Boot API 服务
-└── README.md   项目总说明
+├── frontend/   React single-page application
+├── backend/    Spring Boot API service
+├── build.sh    Full project build script
+├── start.sh    Local startup script
+└── README.md   Project overview
 ```
 
-## 启动后端
+## Configuration
+
+Create the local backend environment file before starting the application:
 
 ```bash
 cd backend
-./mvnw spring-boot:run
+cp .env.example .env
 ```
 
-后端健康检查：`http://localhost:8080/api/health`
+Add your DeepSeek API key to `backend/.env`. This file is ignored by Git.
 
-## 启动前端
+## Build and Run
+
+From the project root:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+./build.sh
+./start.sh
 ```
 
-前端地址：`http://localhost:5173`
+Then open `http://localhost:5173`.
 
-## 后续模块
+The backend health endpoint is available at
+`http://localhost:8080/api/health`.
 
-1. 聊天消息模型和前端交互
-2. DeepSeek 服务端适配器
-3. SSE 流式响应
-4. 对话存储
-5. 登录、限流和部署
+## Planned Work
+
+1. Consistent API error responses
+2. Multi-turn conversation models and persistence
+3. Real conversation history in the sidebar
+4. SSE streaming responses
+5. Model selection and application settings
+6. Authentication, rate limiting, observability, and deployment

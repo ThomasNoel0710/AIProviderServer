@@ -1,17 +1,20 @@
 # CRS Frontend
 
-React、Vite、TypeScript 和 Material UI 前端模块。
+Frontend module built with React, Vite, TypeScript, and Material UI.
 
-## 开发
+## Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-默认地址：`http://localhost:5173`
+Default address: `http://localhost:5173`
 
-## 验证
+The application sends chat requests to `http://localhost:8080` by default. Set
+`VITE_API_BASE_URL` to use a different backend address.
+
+## Verification
 
 ```bash
 npm run lint

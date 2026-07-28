@@ -1,18 +1,18 @@
 # CRS Backend
 
-Java 21、Spring Boot 和 Maven 后端模块。
+Backend module built with Java 21, Spring Boot, and Maven.
 
-## 开发
+## Development
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-默认地址：`http://localhost:8080`
+Default address: `http://localhost:8080`
 
-健康检查：`GET http://localhost:8080/api/health`
+Health check: `GET http://localhost:8080/api/health`
 
-固定响应聊天接口：
+Chat endpoint:
 
 ```bash
 curl -X POST http://localhost:8080/api/chat \
@@ -20,11 +20,23 @@ curl -X POST http://localhost:8080/api/chat \
   -d '{"message":"What is Spring Boot?"}'
 ```
 
-## DeepSeek 配置
+The endpoint validates the message, sends it to DeepSeek, and returns the
+assistant response as JSON:
 
-Spring Boot 从环境变量读取 DeepSeek 配置。本地开发时也会显式加载 `backend/.env`；该文件已被 Git 忽略。
+```json
+{
+  "message": "Spring Boot is..."
+}
+```
 
-第一次配置时，可以复制示例文件，然后只在本机填写真实 Key：
+## DeepSeek Configuration
+
+Spring Boot reads the DeepSeek configuration from environment variables. For
+local development, it also explicitly loads `backend/.env`, which is ignored
+by Git.
+
+Copy the example file when configuring the project for the first time, then add
+your real API key locally:
 
 ```bash
 cp .env.example .env
@@ -37,11 +49,19 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 DEEPSEEK_TIMEOUT=30s
 ```
 
-系统环境变量的优先级高于 `.env`，因此部署时不需要携带 `.env`。当前阶段只完成配置绑定，聊天接口尚未调用 DeepSeek。
+System environment variables take precedence over `.env`, so deployments do
+not need to include the local file.
 
-## 验证
+## Verification
 
 ```bash
 ./mvnw test
 ./mvnw package
+```
+
+The real DeepSeek connection test is skipped during a normal test run. Run it
+explicitly with:
+
+```bash
+RUN_DEEPSEEK_IT=true ./mvnw -Dtest=DeepSeekConnectionTest test
 ```
