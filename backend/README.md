@@ -8,14 +8,14 @@ Backend module built with Java 21, Spring Boot, and Maven.
 ./mvnw spring-boot:run
 ```
 
-Default address: `http://localhost:8080`
+Default address: `http://localhost:18080`
 
-Health check: `GET http://localhost:8080/api/health`
+Health check: `GET http://localhost:18080/api/health`
 
 Chat endpoint:
 
 ```bash
-curl -X POST http://localhost:8080/api/chat \
+curl -X POST http://localhost:18080/api/chat \
   -H "Content-Type: application/json" \
   -d '{"message":"What is Spring Boot?"}'
 ```
@@ -27,6 +27,36 @@ assistant response as JSON:
 {
   "message": "Spring Boot is..."
 }
+```
+
+The original `/api/chat` endpoint remains available for stateless, single-turn
+requests. Persistent multi-turn conversations use:
+
+```text
+POST /api/conversations
+GET  /api/conversations
+GET  /api/conversations/{conversationId}
+PATCH /api/conversations/{conversationId}
+DELETE /api/conversations/{conversationId}
+POST /api/conversations/{conversationId}/messages
+```
+
+The first message becomes the conversation title. Each subsequent request sends
+the ordered conversation history to DeepSeek before saving the assistant
+response. Deleting a conversation also deletes all of its messages.
+
+## Database
+
+The local application uses a file-backed H2 database at `backend/data` by
+default. The directory is ignored by Git. Flyway owns the database schema, and
+Hibernate validates that the Java entity mappings match it during startup.
+
+Database settings can be overridden with:
+
+```text
+DATABASE_URL=
+DATABASE_USERNAME=
+DATABASE_PASSWORD=
 ```
 
 ## DeepSeek Configuration

@@ -8,6 +8,8 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded'
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded'
 import MenuOpenRoundedIcon from '@mui/icons-material/MenuOpenRounded'
@@ -17,10 +19,16 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import Alert from '@mui/material/Alert'
 import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
 import Divider from '@mui/material/Divider'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
 import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
@@ -29,13 +37,16 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { Route, Routes } from 'react-router'
-import { ApiError, sendChatMessage } from './services/api'
-
-const recentChats = [
-  'Learning Spring Boot',
-  'Testing the DeepSeek API',
-  'Backend Development Plan',
-]
+import {
+  ApiError,
+  createConversation,
+  deleteConversation,
+  getConversation,
+  listConversations,
+  renameConversation,
+  sendConversationMessage,
+  type ConversationSummary,
+} from './services/api'
 
 function BrandMark({ size = 36 }: { size?: number }) {
   return (
@@ -63,13 +74,17 @@ function SidebarItem({
   label,
   selected = false,
   onClick,
+  onRename,
+  onDelete,
 }: {
   icon: ReactNode
   label: string
   selected?: boolean
   onClick?: () => void
+  onRename?: () => void
+  onDelete?: () => void
 }) {
-  return (
+  const item = (
     <ListItemButton
       selected={selected}
       aria-label={label}
@@ -78,6 +93,7 @@ function SidebarItem({
         minHeight: 44,
         mx: { xs: 1, md: 1.5 },
         px: { xs: 1.25, md: 1.5 },
+        pr: onRename || onDelete ? { xs: 1.25, md: 10 } : undefined,
         borderRadius: 3,
         justifyContent: { xs: 'center', md: 'flex-start' },
         color: selected ? 'primary.dark' : 'text.primary',
@@ -108,9 +124,64 @@ function SidebarItem({
       />
     </ListItemButton>
   )
+
+  if (!onRename && !onDelete) {
+    return item
+  }
+
+  return (
+    <ListItem
+      disablePadding
+      secondaryAction={(
+        <Stack
+          direction="row"
+          spacing={0.25}
+          sx={{ display: { xs: 'none', md: 'flex' }, mr: 1 }}
+        >
+          {onRename && (
+            <IconButton
+              aria-label={`Rename ${label}`}
+              title={`Rename ${label}`}
+              onClick={onRename}
+              size="small"
+            >
+              <EditRoundedIcon sx={{ fontSize: 17 }} />
+            </IconButton>
+          )}
+          {onDelete && (
+            <IconButton
+              aria-label={`Delete ${label}`}
+              title={`Delete ${label}`}
+              color="error"
+              onClick={onDelete}
+              size="small"
+            >
+              <DeleteOutlineRoundedIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          )}
+        </Stack>
+      )}
+    >
+      {item}
+    </ListItem>
+  )
 }
 
-function Sidebar({ onNewChat }: { onNewChat: () => void }) {
+function Sidebar({
+  conversations,
+  activeConversationId,
+  onNewChat,
+  onSelectConversation,
+  onRenameConversation,
+  onDeleteConversation,
+}: {
+  conversations: ConversationSummary[]
+  activeConversationId: string | null
+  onNewChat: () => void
+  onSelectConversation: (conversationId: string) => void
+  onRenameConversation: (conversation: ConversationSummary) => void
+  onDeleteConversation: (conversation: ConversationSummary) => void
+}) {
   return (
     <Box
       component="aside"
@@ -146,7 +217,7 @@ function Sidebar({ onNewChat }: { onNewChat: () => void }) {
 
       <List disablePadding>
         <SidebarItem
-          selected
+          selected={activeConversationId === null}
           icon={<AddRoundedIcon />}
           label="New chat"
           onClick={onNewChat}
@@ -217,11 +288,15 @@ function Sidebar({ onNewChat }: { onNewChat: () => void }) {
           Recent
         </Typography>
         <List disablePadding>
-          {recentChats.map((chat) => (
+          {conversations.map((conversation) => (
             <SidebarItem
-              key={chat}
+              key={conversation.id}
               icon={<ChatBubbleOutlineRoundedIcon sx={{ fontSize: 19 }} />}
-              label={chat}
+              label={conversation.title}
+              selected={conversation.id === activeConversationId}
+              onClick={() => onSelectConversation(conversation.id)}
+              onRename={() => onRenameConversation(conversation)}
+              onDelete={() => onDeleteConversation(conversation)}
             />
           ))}
         </List>
@@ -362,10 +437,25 @@ function ChatHomePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [draft, setDraft] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [conversations, setConversations] = useState<ConversationSummary[]>([])
+  const [activeConversationId, setActiveConversationId] =
+    useState<string | null>(null)
+  const [renameTarget, setRenameTarget] =
+    useState<ConversationSummary | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [deleteTarget, setDeleteTarget] =
+    useState<ConversationSummary | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isConversationLoading, setIsConversationLoading] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const requestControllerRef = useRef<AbortController | null>(null)
+  const activeConversation = conversations.find(
+    (conversation) => conversation.id === activeConversationId,
+  ) ?? null
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -375,19 +465,180 @@ function ChatHomePage() {
     return () => requestControllerRef.current?.abort()
   }, [])
 
+  useEffect(() => {
+    const controller = new AbortController()
+
+    void listConversations(controller.signal)
+      .then(setConversations)
+      .catch((requestError: unknown) => {
+        if (
+          requestError instanceof DOMException
+          && requestError.name === 'AbortError'
+        ) {
+          return
+        }
+
+        setError(
+          requestError instanceof ApiError
+            ? requestError.message
+            : 'Unable to load conversation history.',
+        )
+      })
+
+    return () => controller.abort()
+  }, [])
+
   const startNewChat = () => {
     requestControllerRef.current?.abort()
     requestControllerRef.current = null
+    setActiveConversationId(null)
     setMessages([])
     setDraft('')
     setError(null)
+    setIsConversationLoading(false)
     setIsSending(false)
+  }
+
+  const openRenameDialog = (conversation: ConversationSummary) => {
+    setRenameTarget(conversation)
+    setRenameDraft(conversation.title)
+  }
+
+  const closeRenameDialog = () => {
+    if (isRenaming) {
+      return
+    }
+
+    setRenameTarget(null)
+    setRenameDraft('')
+  }
+
+  const submitRename = async () => {
+    const title = renameDraft.trim()
+
+    if (!renameTarget || !title || isRenaming) {
+      return
+    }
+
+    setIsRenaming(true)
+    setError(null)
+
+    try {
+      const renamed = await renameConversation(renameTarget.id, title)
+      setConversations((current) => current.map((conversation) => (
+        conversation.id === renamed.id ? renamed : conversation
+      )))
+      setRenameTarget(null)
+      setRenameDraft('')
+    } catch (requestError) {
+      setError(
+        requestError instanceof ApiError
+          ? requestError.message
+          : 'Unable to rename the conversation.',
+      )
+    } finally {
+      setIsRenaming(false)
+    }
+  }
+
+  const openDeleteDialog = (conversation: ConversationSummary) => {
+    setDeleteTarget(conversation)
+    setDeleteError(null)
+  }
+
+  const closeDeleteDialog = () => {
+    if (isDeleting) {
+      return
+    }
+
+    setDeleteTarget(null)
+    setDeleteError(null)
+  }
+
+  const submitDelete = async () => {
+    if (!deleteTarget || isDeleting) {
+      return
+    }
+
+    const conversationId = deleteTarget.id
+    setIsDeleting(true)
+    setDeleteError(null)
+
+    try {
+      await deleteConversation(conversationId)
+      setConversations((current) => current.filter(
+        (conversation) => conversation.id !== conversationId,
+      ))
+
+      if (activeConversationId === conversationId) {
+        requestControllerRef.current?.abort()
+        requestControllerRef.current = null
+        setActiveConversationId(null)
+        setMessages([])
+        setDraft('')
+        setIsConversationLoading(false)
+        setIsSending(false)
+      }
+
+      setDeleteTarget(null)
+    } catch (requestError) {
+      setDeleteError(
+        requestError instanceof ApiError
+          ? requestError.message
+          : 'Unable to delete the conversation.',
+      )
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const selectConversation = async (conversationId: string) => {
+    requestControllerRef.current?.abort()
+    const controller = new AbortController()
+    requestControllerRef.current = controller
+    setActiveConversationId(conversationId)
+    setMessages([])
+    setError(null)
+    setIsSending(false)
+    setIsConversationLoading(true)
+
+    try {
+      const conversation = await getConversation(
+        conversationId,
+        controller.signal,
+      )
+      setMessages(
+        conversation.messages.map((message) => ({
+          id: message.id,
+          role: message.role,
+          content: message.content,
+        })),
+      )
+    } catch (requestError) {
+      if (
+        requestError instanceof DOMException
+        && requestError.name === 'AbortError'
+      ) {
+        return
+      }
+
+      setError(
+        requestError instanceof ApiError
+          ? requestError.message
+          : 'Unable to load the conversation.',
+      )
+    } finally {
+      if (requestControllerRef.current === controller) {
+        requestControllerRef.current = null
+        setIsConversationLoading(false)
+      }
+    }
   }
 
   const sendMessage = async () => {
     const message = draft.trim()
 
-    if (!message || isSending) {
+    if (!message || isSending || isConversationLoading) {
       return
     }
 
@@ -407,16 +658,40 @@ function ChatHomePage() {
     setIsSending(true)
 
     try {
-      const response = await sendChatMessage(message, controller.signal)
+      let conversationId = activeConversationId
+
+      if (conversationId === null) {
+        const conversation = await createConversation(controller.signal)
+        conversationId = conversation.id
+        setActiveConversationId(conversation.id)
+        setConversations((current) => [conversation, ...current])
+      }
+
+      const response = await sendConversationMessage(
+        conversationId,
+        message,
+        controller.signal,
+      )
 
       setMessages((current) => [
         ...current,
         {
-          id: crypto.randomUUID(),
+          id: response.id,
           role: 'assistant',
-          content: response.message,
+          content: response.content,
         },
       ])
+
+      try {
+        setConversations(await listConversations(controller.signal))
+      } catch (historyError) {
+        if (
+          historyError instanceof DOMException
+          && historyError.name === 'AbortError'
+        ) {
+          throw historyError
+        }
+      }
     } catch (requestError) {
       if (
         requestError instanceof DOMException
@@ -446,7 +721,18 @@ function ChatHomePage() {
         bgcolor: '#ffffff',
       }}
     >
-      {isSidebarOpen && <Sidebar onNewChat={startNewChat} />}
+      {isSidebarOpen && (
+        <Sidebar
+          conversations={conversations}
+          activeConversationId={activeConversationId}
+          onNewChat={startNewChat}
+          onSelectConversation={(conversationId) => {
+            void selectConversation(conversationId)
+          }}
+          onRenameConversation={openRenameDialog}
+          onDeleteConversation={openDeleteDialog}
+        />
+      )}
 
       <Box
         component="main"
@@ -482,6 +768,30 @@ function ChatHomePage() {
           {isSidebarOpen ? <MenuOpenRoundedIcon /> : <MenuRoundedIcon />}
         </IconButton>
 
+        {activeConversation && (
+          <IconButton
+            aria-label={`Delete ${activeConversation.title}`}
+            title={`Delete ${activeConversation.title}`}
+            color="error"
+            onClick={() => openDeleteDialog(activeConversation)}
+            sx={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              zIndex: 2,
+              width: 42,
+              height: 42,
+              border: '1px solid',
+              borderColor: '#f1c7c7',
+              bgcolor: 'rgba(255, 255, 255, 0.9)',
+              boxShadow: '0 2px 8px rgba(60, 64, 67, 0.08)',
+              '&:hover': { bgcolor: '#fce8e6' },
+            }}
+          >
+            <DeleteOutlineRoundedIcon />
+          </IconButton>
+        )}
+
         <Box
           sx={{
             flexGrow: 1,
@@ -489,7 +799,17 @@ function ChatHomePage() {
             overflowY: 'auto',
           }}
         >
-          {messages.length === 0 && !isSending ? (
+          {isConversationLoading ? (
+            <Box
+              sx={{
+                height: '100%',
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              <CircularProgress />
+            </Box>
+          ) : messages.length === 0 && !isSending ? (
             <Box
               sx={{
                 height: '100%',
@@ -580,8 +900,12 @@ function ChatHomePage() {
               multiline
               maxRows={5}
               value={draft}
-              disabled={isSending}
-              placeholder={isSending ? 'Waiting for a response…' : 'Type a message'}
+              disabled={isSending || isConversationLoading}
+              placeholder={
+                isSending
+                  ? 'Waiting for a response…'
+                  : 'Type a message'
+              }
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (
@@ -610,7 +934,11 @@ function ChatHomePage() {
             />
             <IconButton
               type="submit"
-              disabled={!draft.trim() || isSending}
+              disabled={
+                !draft.trim()
+                || isSending
+                || isConversationLoading
+              }
               aria-label="Send message"
               sx={{
                 width: 42,
@@ -634,6 +962,86 @@ function ChatHomePage() {
           </Paper>
         </Box>
       </Box>
+
+      <Dialog
+        open={renameTarget !== null}
+        onClose={closeRenameDialog}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Rename conversation</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Conversation title"
+            value={renameDraft}
+            disabled={isRenaming}
+            onChange={(event) => setRenameDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                void submitRename()
+              }
+            }}
+            slotProps={{
+              htmlInput: {
+                maxLength: 200,
+              },
+            }}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={closeRenameDialog} disabled={isRenaming}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              void submitRename()
+            }}
+            disabled={!renameDraft.trim() || isRenaming}
+          >
+            {isRenaming ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={deleteTarget !== null}
+        onClose={closeDeleteDialog}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Delete conversation?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            “{deleteTarget?.title}” and all of its messages will be permanently
+            deleted. This action cannot be undone.
+          </Typography>
+          {deleteError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {deleteError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={closeDeleteDialog} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              void submitDelete()
+            }}
+            disabled={isDeleting}
+          >
+            {isDeleting ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
