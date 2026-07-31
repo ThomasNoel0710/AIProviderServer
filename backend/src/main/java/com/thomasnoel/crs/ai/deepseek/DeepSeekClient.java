@@ -32,23 +32,20 @@ public class DeepSeekClient {
                 .build();
     }
 
-    private DeepSeekChatRequest buildRequest (String userMessage) {
-        DeepSeekMessage message = new DeepSeekMessage(
-                "user",
-                userMessage
-        );
-
+    private DeepSeekChatRequest buildRequest(
+            List<DeepSeekMessage> messages
+    ) {
         return new DeepSeekChatRequest(
             properties.model(),
-            List.of(message),
+            messages,
             new DeepSeekChatRequest.Thinking("disabled"),
             512,
             false
         );
     }
 
-    private String buildRequestJson(String userMessage) {
-        DeepSeekChatRequest request = buildRequest(userMessage);
+    private String buildRequestJson(List<DeepSeekMessage> messages) {
+        DeepSeekChatRequest request = buildRequest(messages);
 
         try {
             return jsonMapper.writeValueAsString(request);
@@ -107,7 +104,13 @@ public class DeepSeekClient {
     }
 
     public String chat(String userMessage) {
-        String requestJson = buildRequestJson(userMessage);
+        return chat(List.of(
+                new DeepSeekMessage("user", userMessage)
+        ));
+    }
+
+    public String chat(List<DeepSeekMessage> messages) {
+        String requestJson = buildRequestJson(messages);
         HttpRequest request = buildHttpRequest(requestJson);
 
         HttpResponse<String> response;

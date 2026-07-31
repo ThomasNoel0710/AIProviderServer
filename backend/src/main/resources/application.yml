@@ -3,6 +3,16 @@ spring:
     name: crs-backend
   config:
     import: optional:file:./.env[extension=.properties]
+  datasource:
+    url: ${DATABASE_URL:jdbc:h2:file:./data/crs}
+    username: ${DATABASE_USERNAME:sa}
+    password: ${DATABASE_PASSWORD:}
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
 
 deepseek:
   base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
@@ -11,7 +21,7 @@ deepseek:
   timeout: ${DEEPSEEK_TIMEOUT:30s}
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:18080}
 
 management:
   endpoints:
