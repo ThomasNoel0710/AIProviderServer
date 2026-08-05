@@ -9,6 +9,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import com.thomasnoel.crs.ai.ModelProvider;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+
 @Entity
 @Table(name = "conversations")
 public class ConversationEntity {
@@ -18,6 +22,12 @@ public class ConversationEntity {
 
     @Column(nullable = false, length = 200)
     private String title;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private ModelProvider provider;
+    @Column(name = "model_id", nullable = false, length = 100)
+    private String modelId;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -31,19 +41,28 @@ public class ConversationEntity {
     public ConversationEntity(
             UUID id,
             String title,
+            ModelProvider provider,
+            String modelId,
             Instant createdAt,
             Instant updatedAt
     ) {
         this.id = Objects.requireNonNull(id);
         this.title = Objects.requireNonNull(title);
+        this.provider = Objects.requireNonNull(provider);
+        this.modelId = Objects.requireNonNull(modelId);
         this.createdAt = Objects.requireNonNull(createdAt);
         this.updatedAt = Objects.requireNonNull(updatedAt);
     }
 
-    public static ConversationEntity create(String title, Instant now) {
+    public static ConversationEntity create(String title, 
+        ModelProvider provider, 
+        String modelId, 
+        Instant now) {
         return new ConversationEntity(
                 UUID.randomUUID(),
                 title,
+                provider,
+                modelId,
                 now,
                 now
         );
@@ -64,6 +83,14 @@ public class ConversationEntity {
 
     public String getTitle() {
         return title;
+    }
+
+    public ModelProvider getProvider() {
+        return provider;
+    }
+
+    public String getModelId() {
+        return modelId;
     }
 
     public Instant getCreatedAt() {

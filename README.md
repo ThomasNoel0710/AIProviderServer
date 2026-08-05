@@ -189,9 +189,6 @@ DELETE /api/conversations/{conversationId}
 POST   /api/conversations/{conversationId}/messages
 ```
 
-The original `POST /api/chat` endpoint remains available for stateless,
-single-turn DeepSeek requests during the MVP phase.
-
 ## Verification
 
 ```bash

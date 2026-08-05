@@ -14,8 +14,13 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.Locale;
+
+import com.thomasnoel.crs.ai.ChatModelClient;
+import com.thomasnoel.crs.ai.ChatModelMessage;
+
 @Component
-public class DeepSeekClient {
+public class DeepSeekClient implements ChatModelClient {
 
     private final DeepSeekProperties properties;
     private final JsonMapper jsonMapper;
@@ -33,10 +38,11 @@ public class DeepSeekClient {
     }
 
     private DeepSeekChatRequest buildRequest(
+            String modelId,
             List<DeepSeekMessage> messages
     ) {
         return new DeepSeekChatRequest(
-            properties.model(),
+            modelId,
             messages,
             new DeepSeekChatRequest.Thinking("disabled"),
             512,
@@ -44,9 +50,8 @@ public class DeepSeekClient {
         );
     }
 
-    private String buildRequestJson(List<DeepSeekMessage> messages) {
-        DeepSeekChatRequest request = buildRequest(messages);
-
+    private String buildRequestJson(String modelId, List<DeepSeekMessage> messages) {
+        DeepSeekChatRequest request = buildRequest(modelId, messages);
         try {
             return jsonMapper.writeValueAsString(request);
         } catch (JacksonException exception) {
@@ -103,14 +108,15 @@ public class DeepSeekClient {
         return message.content();
     }
 
-    public String chat(String userMessage) {
-        return chat(List.of(
-                new DeepSeekMessage("user", userMessage)
-        ));
-    }
-
-    public String chat(List<DeepSeekMessage> messages) {
-        String requestJson = buildRequestJson(messages);
+    @Override
+    public String chat(String modelId, List<ChatModelMessage> messages) {
+        List<DeepSeekMessage> deepSeekMessages = messages.stream()
+            .map(message -> new DeepSeekMessage(
+                message.role().name().toLowerCase(Locale.ROOT),
+                message.content()
+            ))
+            .toList();
+        String requestJson = buildRequestJson(modelId, deepSeekMessages);
         HttpRequest request = buildHttpRequest(requestJson);
 
         HttpResponse<String> response;

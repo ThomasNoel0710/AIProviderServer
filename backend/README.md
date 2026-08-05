@@ -12,25 +12,7 @@ Default address: `http://localhost:18080`
 
 Health check: `GET http://localhost:18080/api/health`
 
-Chat endpoint:
-
-```bash
-curl -X POST http://localhost:18080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message":"What is Spring Boot?"}'
-```
-
-The endpoint validates the message, sends it to DeepSeek, and returns the
-assistant response as JSON:
-
-```json
-{
-  "message": "Spring Boot is..."
-}
-```
-
-The original `/api/chat` endpoint remains available for stateless, single-turn
-requests. Persistent multi-turn conversations use:
+Persistent multi-turn conversations use:
 
 ```text
 POST /api/conversations

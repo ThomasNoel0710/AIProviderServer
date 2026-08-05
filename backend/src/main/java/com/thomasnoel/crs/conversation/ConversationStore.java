@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.thomasnoel.crs.ai.ModelProvider;
 
 @Service
 public class ConversationStore {
@@ -26,10 +27,15 @@ public class ConversationStore {
     }
 
     @Transactional
-    public ConversationEntity createConversation() {
+    public ConversationEntity createConversation(
+        ModelProvider provider,
+        String modelId
+    ) {
         return conversationRepository.save(
                 ConversationEntity.create(
                         NEW_CONVERSATION_TITLE,
+                        provider,
+                        modelId,
                         Instant.now()
                 )
         );
