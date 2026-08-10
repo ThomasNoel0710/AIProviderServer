@@ -4,8 +4,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-import com.thomasnoel.crs.ai.deepseek.DeepSeekClient;
-import com.thomasnoel.crs.ai.deepseek.dto.DeepSeekMessage;
+import com.thomasnoel.crs.ai.ChatModelClient;
+import com.thomasnoel.crs.ai.ChatModelMessage;
+import com.thomasnoel.crs.ai.ChatModelRole;
+import com.thomasnoel.crs.ai.ModelCatalog;
+import com.thomasnoel.crs.ai.UnsupportedModelException;
+import com.thomasnoel.crs.ai.ModelProvider;
 import com.thomasnoel.crs.api.conversation.dto.ConversationDetailResponse;
 import com.thomasnoel.crs.api.conversation.dto.ConversationSummaryResponse;
 import com.thomasnoel.crs.api.conversation.dto.MessageResponse;
@@ -18,18 +22,30 @@ import org.springframework.stereotype.Service;
 public class ConversationService {
 
     private final ConversationStore conversationStore;
-    private final DeepSeekClient deepSeekClient;
+    private final ModelCatalog modelCatalog;
+    private final ChatModelClient chatModelClient;
 
     public ConversationService(
             ConversationStore conversationStore,
-            DeepSeekClient deepSeekClient
+            ModelCatalog modelCatalog,
+            ChatModelClient chatModelClient
     ) {
         this.conversationStore = conversationStore;
-        this.deepSeekClient = deepSeekClient;
+        this.modelCatalog = modelCatalog;
+        this.chatModelClient = chatModelClient;
     }
 
-    public ConversationSummaryResponse createConversation() {
-        return toSummary(conversationStore.createConversation());
+    public ConversationSummaryResponse createConversation(
+        ModelProvider provider,
+        String modelId
+    ) {
+        if (!modelCatalog.supports(provider, modelId)) {
+            throw new UnsupportedModelException(provider, modelId);
+        }
+        return toSummary(conversationStore.createConversation(
+                provider,
+                modelId
+        ));
     }
 
     public List<ConversationSummaryResponse> listConversations() {
@@ -49,6 +65,8 @@ public class ConversationService {
         return new ConversationDetailResponse(
                 conversation.getId(),
                 conversation.getTitle(),
+                conversation.getProvider(),
+                conversation.getModelId(),
                 conversation.getCreatedAt(),
                 conversation.getUpdatedAt(),
                 messages
@@ -72,15 +90,19 @@ public class ConversationService {
             UUID conversationId,
             String content
     ) {
+        ConversationEntity conversation = conversationStore.getConversation(
+                conversationId
+        );
         List<MessageEntity> history = conversationStore.appendUserMessage(
                 conversationId,
                 content
         );
-        List<DeepSeekMessage> deepSeekMessages = history.stream()
-                .map(this::toDeepSeekMessage)
+        String modelId = conversation.getModelId();
+        List<ChatModelMessage> chatModelMessages = history.stream()
+                .map(this::toChatModelMessage)
                 .toList();
 
-        String answer = deepSeekClient.chat(deepSeekMessages);
+        String answer = chatModelClient.chat(modelId, chatModelMessages);
         MessageEntity assistantMessage =
                 conversationStore.appendAssistantMessage(
                         conversationId,
@@ -96,6 +118,8 @@ public class ConversationService {
         return new ConversationSummaryResponse(
                 conversation.getId(),
                 conversation.getTitle(),
+                conversation.getProvider(),
+                conversation.getModelId(),
                 conversation.getCreatedAt(),
                 conversation.getUpdatedAt()
         );
@@ -111,9 +135,9 @@ public class ConversationService {
         );
     }
 
-    private DeepSeekMessage toDeepSeekMessage(MessageEntity message) {
-        return new DeepSeekMessage(
-                message.getRole().name().toLowerCase(Locale.ROOT),
+    private ChatModelMessage toChatModelMessage(MessageEntity message) {
+        return new ChatModelMessage(
+                ChatModelRole.valueOf(message.getRole().name()),
                 message.getContent()
         );
     }

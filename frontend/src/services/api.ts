@@ -3,9 +3,19 @@ const DEFAULT_API_BASE_URL = 'http://localhost:18080'
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).replace(/\/+$/, '')
 
+export type ModelProvider = 'DEEPSEEK' | 'OPENAI' | 'ANTHROPIC'
+
+export interface ChatModelDefinition {
+  provider: ModelProvider
+  modelId: string
+  displayName: string
+}
+
 export interface ConversationSummary {
   id: string
   title: string
+  provider: ModelProvider
+  modelId: string
   createdAt: string
   updatedAt: string
 }
@@ -36,6 +46,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+function isModelProvider(value: unknown): value is ModelProvider {
+  return value === 'DEEPSEEK' || value === 'OPENAI' || value === 'ANTHROPIC'
+}
+
+function isChatModelDefinition(value: unknown): value is ChatModelDefinition {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    isModelProvider(value.provider)
+    && typeof value.modelId === 'string'
+    && typeof value.displayName === 'string'
+  )
+}
+
 function isConversationSummary(value: unknown): value is ConversationSummary {
   if (!isRecord(value)) {
     return false
@@ -44,6 +70,8 @@ function isConversationSummary(value: unknown): value is ConversationSummary {
   return (
     typeof value.id === 'string'
     && typeof value.title === 'string'
+    && isModelProvider(value.provider)
+    && typeof value.modelId === 'string'
     && typeof value.createdAt === 'string'
     && typeof value.updatedAt === 'string'
   )
@@ -74,7 +102,7 @@ function isConversationDetail(value: unknown): value is ConversationDetail {
 
 function getHttpErrorMessage(status: number) {
   if (status === 400) {
-    return 'The message is invalid. Please check it and try again.'
+    return 'The request is invalid. Please check it and try again.'
   }
 
   if (status === 404) {
@@ -178,13 +206,31 @@ export function listConversations(
   )
 }
 
+export function listModels(
+  signal?: AbortSignal,
+): Promise<ChatModelDefinition[]> {
+  return requestJson(
+    '/api/models',
+    { signal },
+    (value): value is ChatModelDefinition[] => (
+      Array.isArray(value) && value.every(isChatModelDefinition)
+    ),
+  )
+}
+
 export function createConversation(
+  provider: ModelProvider,
+  modelId: string,
   signal?: AbortSignal,
 ): Promise<ConversationSummary> {
   return requestJson(
     '/api/conversations',
     {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ provider, modelId }),
       signal,
     },
     isConversationSummary,

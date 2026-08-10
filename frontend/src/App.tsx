@@ -32,7 +32,9 @@ import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
+import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
+import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
@@ -43,8 +45,10 @@ import {
   deleteConversation,
   getConversation,
   listConversations,
+  listModels,
   renameConversation,
   sendConversationMessage,
+  type ChatModelDefinition,
   type ConversationSummary,
 } from './services/api'
 
@@ -170,14 +174,22 @@ function SidebarItem({
 function Sidebar({
   conversations,
   activeConversationId,
+  models,
+  selectedModelId,
+  isModelSelectionLocked,
   onNewChat,
+  onSelectModel,
   onSelectConversation,
   onRenameConversation,
   onDeleteConversation,
 }: {
   conversations: ConversationSummary[]
   activeConversationId: string | null
+  models: ChatModelDefinition[]
+  selectedModelId: string
+  isModelSelectionLocked: boolean
   onNewChat: () => void
+  onSelectModel: (modelId: string) => void
   onSelectConversation: (conversationId: string) => void
   onRenameConversation: (conversation: ConversationSummary) => void
   onDeleteConversation: (conversation: ConversationSummary) => void
@@ -254,17 +266,31 @@ function Sidebar({
           <Typography variant="caption" color="text.secondary">
             Current model
           </Typography>
-          <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
-            DeepSeek V4 Flash
-          </Typography>
+          <Select
+            fullWidth
+            variant="standard"
+            value={selectedModelId}
+            disabled={isModelSelectionLocked || models.length === 0}
+            disableUnderline
+            onChange={(event) => onSelectModel(event.target.value)}
+            inputProps={{ 'aria-label': 'Current model' }}
+            sx={{
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              '& .MuiSelect-select': { py: 0.15 },
+            }}
+          >
+            {models.length === 0 ? (
+              <MenuItem value="" disabled>
+                No models available
+              </MenuItem>
+            ) : models.map((model) => (
+              <MenuItem key={model.modelId} value={model.modelId}>
+                {model.displayName}
+              </MenuItem>
+            ))}
+          </Select>
         </Box>
-        <ExpandMoreRoundedIcon
-          sx={{
-            display: { xs: 'none', md: 'block' },
-            color: 'text.secondary',
-            fontSize: 20,
-          }}
-        />
       </Paper>
 
       <Box
@@ -438,6 +464,8 @@ function ChatHomePage() {
   const [draft, setDraft] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
+  const [models, setModels] = useState<ChatModelDefinition[]>([])
+  const [selectedModelId, setSelectedModelId] = useState('')
   const [activeConversationId, setActiveConversationId] =
     useState<string | null>(null)
   const [renameTarget, setRenameTarget] =
@@ -485,6 +513,34 @@ function ChatHomePage() {
         )
       })
 
+    void listModels(controller.signal)
+      .then((availableModels) => {
+        setModels(availableModels)
+        setSelectedModelId((current) => (
+          availableModels.some((model) => model.modelId === current)
+            ? current
+            : (availableModels[0]?.modelId ?? '')
+        ))
+
+        if (availableModels.length === 0) {
+          setError('No chat models are currently available.')
+        }
+      })
+      .catch((requestError: unknown) => {
+        if (
+          requestError instanceof DOMException
+          && requestError.name === 'AbortError'
+        ) {
+          return
+        }
+
+        setError(
+          requestError instanceof ApiError
+            ? requestError.message
+            : 'Unable to load available chat models.',
+        )
+      })
+
     return () => controller.abort()
   }, [])
 
@@ -492,6 +548,7 @@ function ChatHomePage() {
     requestControllerRef.current?.abort()
     requestControllerRef.current = null
     setActiveConversationId(null)
+    setSelectedModelId(models[0]?.modelId ?? '')
     setMessages([])
     setDraft('')
     setError(null)
@@ -574,6 +631,7 @@ function ChatHomePage() {
         requestControllerRef.current?.abort()
         requestControllerRef.current = null
         setActiveConversationId(null)
+        setSelectedModelId(models[0]?.modelId ?? '')
         setMessages([])
         setDraft('')
         setIsConversationLoading(false)
@@ -597,6 +655,12 @@ function ChatHomePage() {
     const controller = new AbortController()
     requestControllerRef.current = controller
     setActiveConversationId(conversationId)
+    const selectedConversation = conversations.find(
+      (conversation) => conversation.id === conversationId,
+    )
+    if (selectedConversation) {
+      setSelectedModelId(selectedConversation.modelId)
+    }
     setMessages([])
     setError(null)
     setIsSending(false)
@@ -607,6 +671,7 @@ function ChatHomePage() {
         conversationId,
         controller.signal,
       )
+      setSelectedModelId(conversation.modelId)
       setMessages(
         conversation.messages.map((message) => ({
           id: message.id,
@@ -642,6 +707,15 @@ function ChatHomePage() {
       return
     }
 
+    const selectedModel = models.find(
+      (model) => model.modelId === selectedModelId,
+    )
+
+    if (activeConversationId === null && !selectedModel) {
+      setError('Select an available model before starting a conversation.')
+      return
+    }
+
     const controller = new AbortController()
     requestControllerRef.current = controller
 
@@ -661,9 +735,14 @@ function ChatHomePage() {
       let conversationId = activeConversationId
 
       if (conversationId === null) {
-        const conversation = await createConversation(controller.signal)
+        const conversation = await createConversation(
+          selectedModel!.provider,
+          selectedModel!.modelId,
+          controller.signal,
+        )
         conversationId = conversation.id
         setActiveConversationId(conversation.id)
+        setSelectedModelId(conversation.modelId)
         setConversations((current) => [conversation, ...current])
       }
 
@@ -725,7 +804,11 @@ function ChatHomePage() {
         <Sidebar
           conversations={conversations}
           activeConversationId={activeConversationId}
+          models={models}
+          selectedModelId={selectedModelId}
+          isModelSelectionLocked={activeConversationId !== null || isSending}
           onNewChat={startNewChat}
+          onSelectModel={setSelectedModelId}
           onSelectConversation={(conversationId) => {
             void selectConversation(conversationId)
           }}

@@ -8,6 +8,7 @@ import com.thomasnoel.crs.api.conversation.dto.ConversationSummaryResponse;
 import com.thomasnoel.crs.api.conversation.dto.MessageResponse;
 import com.thomasnoel.crs.api.conversation.dto.RenameConversationRequest;
 import com.thomasnoel.crs.api.conversation.dto.SendMessageRequest;
+import com.thomasnoel.crs.api.conversation.dto.CreateConversationRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,8 +33,13 @@ public class ConversationController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ConversationSummaryResponse createConversation() {
-        return conversationService.createConversation();
+    public ConversationSummaryResponse createConversation(
+            @Valid @RequestBody CreateConversationRequest request
+    ) {
+        return conversationService.createConversation(
+                request.provider(),
+                request.modelId()
+        );
     }
 
     @GetMapping

@@ -1,5 +1,9 @@
 package com.thomasnoel.crs;
 
+import java.util.List;
+
+import com.thomasnoel.crs.ai.ChatModelMessage;
+import com.thomasnoel.crs.ai.ChatModelRole;
 import com.thomasnoel.crs.ai.deepseek.DeepSeekClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -21,7 +25,13 @@ class DeepSeekConnectionTest {
     @Test
     void connectsToDeepSeek() throws Exception {
         String answer = deepSeekClient.chat(
-                "Give me some description of Vancouver"
+                "deepseek-v4-flash",
+                List.of(
+                        new ChatModelMessage(
+                                ChatModelRole.USER,
+                                "Give me some description of Vancouver"
+                        )
+                )
         );
 
         System.out.println("DeepSeek answer: " + answer);

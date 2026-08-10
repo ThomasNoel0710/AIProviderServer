@@ -4,9 +4,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import com.thomasnoel.crs.ai.deepseek.DeepSeekClient;
-import com.thomasnoel.crs.ai.deepseek.dto.DeepSeekMessage;
+import com.thomasnoel.crs.ai.ChatModelClient;
+import com.thomasnoel.crs.ai.ChatModelMessage;
+import com.thomasnoel.crs.ai.ChatModelRole;
+import com.thomasnoel.crs.ai.ModelCatalog;
+import com.thomasnoel.crs.ai.ModelProvider;
+import com.thomasnoel.crs.ai.UnsupportedModelException;
 import com.thomasnoel.crs.api.conversation.dto.MessageResponse;
+import com.thomasnoel.crs.conversation.ConversationEntity;
 import com.thomasnoel.crs.conversation.ConversationStore;
 import com.thomasnoel.crs.conversation.MessageEntity;
 import com.thomasnoel.crs.conversation.MessageRole;
@@ -18,6 +23,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,7 +37,10 @@ class ConversationServiceTest {
     private ConversationStore conversationStore;
 
     @Mock
-    private DeepSeekClient deepSeekClient;
+    private ModelCatalog modelCatalog;
+
+    @Mock
+    private ChatModelClient chatModelClient;
 
     @InjectMocks
     private ConversationService conversationService;
@@ -43,9 +55,61 @@ class ConversationServiceTest {
     }
 
     @Test
-    void sendsTheFullConversationHistoryToDeepSeek() {
+    void createsConversationWithSupportedModel() {
+        Instant now = Instant.parse("2026-07-28T12:00:00Z");
+        ConversationEntity conversation = conversation(
+                UUID.randomUUID(),
+                now
+        );
+        when(
+                modelCatalog.supports(
+                        ModelProvider.DEEPSEEK,
+                        "deepseek-v4-flash"
+                )
+        ).thenReturn(true);
+        when(
+                conversationStore.createConversation(
+                        ModelProvider.DEEPSEEK,
+                        "deepseek-v4-flash"
+                )
+        ).thenReturn(conversation);
+
+        var response = conversationService.createConversation(
+                ModelProvider.DEEPSEEK,
+                "deepseek-v4-flash"
+        );
+
+        assertEquals(ModelProvider.DEEPSEEK, response.provider());
+        assertEquals("deepseek-v4-flash", response.modelId());
+    }
+
+    @Test
+    void rejectsUnsupportedModel() {
+        when(
+                modelCatalog.supports(
+                        ModelProvider.OPENAI,
+                        "unknown"
+                )
+        ).thenReturn(false);
+
+        assertThrows(
+                UnsupportedModelException.class,
+                () -> conversationService.createConversation(
+                        ModelProvider.OPENAI,
+                        "unknown"
+                )
+        );
+        verify(conversationStore, never()).createConversation(
+                ModelProvider.OPENAI,
+                "unknown"
+        );
+    }
+
+    @Test
+    void sendsTheFullConversationHistoryToSelectedModel() {
         UUID conversationId = UUID.randomUUID();
         Instant now = Instant.parse("2026-07-28T12:00:00Z");
+        ConversationEntity conversation = conversation(conversationId, now);
         List<MessageEntity> history = List.of(
                 message(
                         conversationId,
@@ -77,15 +141,20 @@ class ConversationServiceTest {
                 now.plusSeconds(3)
         );
 
+        when(conversationStore.getConversation(conversationId))
+                .thenReturn(conversation);
         when(
                 conversationStore.appendUserMessage(
                         conversationId,
                         "What is my name?"
                 )
         ).thenReturn(history);
-        when(deepSeekClient.chat(
-                org.mockito.ArgumentMatchers.<DeepSeekMessage>anyList()
-        )).thenReturn("Your name is Thomas.");
+        when(
+                chatModelClient.chat(
+                        eq("deepseek-v4-flash"),
+                        anyList()
+                )
+        ).thenReturn("Your name is Thomas.");
         when(
                 conversationStore.appendAssistantMessage(
                         conversationId,
@@ -99,17 +168,31 @@ class ConversationServiceTest {
         );
 
         @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<DeepSeekMessage>> messagesCaptor =
+        ArgumentCaptor<List<ChatModelMessage>> messagesCaptor =
                 ArgumentCaptor.forClass(List.class);
-        verify(deepSeekClient).chat(messagesCaptor.capture());
+        verify(chatModelClient).chat(
+                eq("deepseek-v4-flash"),
+                messagesCaptor.capture()
+        );
 
-        List<DeepSeekMessage> sentMessages = messagesCaptor.getValue();
+        List<ChatModelMessage> sentMessages = messagesCaptor.getValue();
         assertEquals(3, sentMessages.size());
-        assertEquals("user", sentMessages.get(0).role());
+        assertEquals(ChatModelRole.USER, sentMessages.get(0).role());
         assertEquals("My name is Thomas.", sentMessages.get(0).content());
-        assertEquals("assistant", sentMessages.get(1).role());
-        assertEquals("user", sentMessages.get(2).role());
+        assertEquals(ChatModelRole.ASSISTANT, sentMessages.get(1).role());
+        assertEquals(ChatModelRole.USER, sentMessages.get(2).role());
         assertEquals("Your name is Thomas.", response.content());
+    }
+
+    private ConversationEntity conversation(UUID id, Instant now) {
+        return new ConversationEntity(
+                id,
+                "New conversation",
+                ModelProvider.DEEPSEEK,
+                "deepseek-v4-flash",
+                now,
+                now
+        );
     }
 
     private MessageEntity message(

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import com.thomasnoel.crs.ai.ModelProvider;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +34,12 @@ class ConversationPersistenceTest {
     void savesConversationAndReturnsMessagesInSequence() {
         Instant now = Instant.parse("2026-07-28T12:00:00Z");
         ConversationEntity conversation = conversationRepository.save(
-                ConversationEntity.create("Spring Boot", now)
+                ConversationEntity.create(
+                        "Spring Boot",
+                        ModelProvider.DEEPSEEK,
+                        "deepseek-v4-flash",
+                        now
+                )
         );
 
         messageRepository.save(
@@ -66,13 +72,20 @@ class ConversationPersistenceTest {
         assertEquals(1, messages.get(0).getSequenceNumber());
         assertEquals(MessageRole.ASSISTANT, messages.get(1).getRole());
         assertEquals(2, messages.get(1).getSequenceNumber());
+        assertEquals(ModelProvider.DEEPSEEK, conversation.getProvider());
+        assertEquals("deepseek-v4-flash", conversation.getModelId());
     }
 
     @Test
     void deletingConversationAlsoDeletesItsMessages() {
         Instant now = Instant.parse("2026-07-28T12:00:00Z");
         ConversationEntity conversation = conversationRepository.save(
-                ConversationEntity.create("Delete me", now)
+                ConversationEntity.create(
+                        "Delete me",
+                        ModelProvider.DEEPSEEK,
+                        "deepseek-v4-pro",
+                        now
+                )
         );
         UUID conversationId = conversation.getId();
         messageRepository.save(

@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import com.thomasnoel.crs.ai.ModelProvider;
+import com.thomasnoel.crs.ai.UnsupportedModelException;
 import com.thomasnoel.crs.api.conversation.dto.ConversationDetailResponse;
 import com.thomasnoel.crs.api.conversation.dto.ConversationSummaryResponse;
 import com.thomasnoel.crs.api.conversation.dto.MessageResponse;
@@ -50,10 +52,24 @@ class ConversationControllerTest {
 
     @Test
     void createsConversation() throws Exception {
-        when(conversationService.createConversation())
+        when(
+                conversationService.createConversation(
+                        ModelProvider.DEEPSEEK,
+                        "deepseek-v4-flash"
+                )
+        )
                 .thenReturn(conversationSummary());
 
-        mockMvc.perform(post("/api/conversations"))
+        mockMvc.perform(
+                        post("/api/conversations")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "provider": "DEEPSEEK",
+                                          "modelId": "deepseek-v4-flash"
+                                        }
+                                        """)
+                )
                 .andExpect(status().isCreated())
                 .andExpect(
                         jsonPath("$.id")
@@ -62,7 +78,53 @@ class ConversationControllerTest {
                 .andExpect(
                         jsonPath("$.title")
                                 .value("New conversation")
+                )
+                .andExpect(
+                        jsonPath("$.provider").value("DEEPSEEK")
+                )
+                .andExpect(
+                        jsonPath("$.modelId").value("deepseek-v4-flash")
                 );
+    }
+
+    @Test
+    void rejectsBlankModelId() throws Exception {
+        mockMvc.perform(
+                        post("/api/conversations")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "provider": "DEEPSEEK",
+                                          "modelId": " "
+                                        }
+                                        """)
+                )
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsUnsupportedModel() throws Exception {
+        doThrow(
+                new UnsupportedModelException(
+                        ModelProvider.DEEPSEEK,
+                        "unknown"
+                )
+        ).when(conversationService).createConversation(
+                ModelProvider.DEEPSEEK,
+                "unknown"
+        );
+
+        mockMvc.perform(
+                        post("/api/conversations")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "provider": "DEEPSEEK",
+                                          "modelId": "unknown"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -86,6 +148,8 @@ class ConversationControllerTest {
                         new ConversationDetailResponse(
                                 CONVERSATION_ID,
                                 "Spring Boot",
+                                ModelProvider.DEEPSEEK,
+                                "deepseek-v4-pro",
                                 CREATED_AT,
                                 CREATED_AT.plusSeconds(1),
                                 List.of(message)
@@ -98,6 +162,7 @@ class ConversationControllerTest {
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Spring Boot"))
+                .andExpect(jsonPath("$.modelId").value("deepseek-v4-pro"))
                 .andExpect(jsonPath("$.messages[0].role").value("assistant"))
                 .andExpect(
                         jsonPath("$.messages[0].content")
@@ -196,6 +261,8 @@ class ConversationControllerTest {
                 new ConversationSummaryResponse(
                         CONVERSATION_ID,
                         "Java learning",
+                        ModelProvider.DEEPSEEK,
+                        "deepseek-v4-flash",
                         CREATED_AT,
                         CREATED_AT.plusSeconds(1)
                 );
@@ -260,6 +327,8 @@ class ConversationControllerTest {
         return new ConversationSummaryResponse(
                 CONVERSATION_ID,
                 "New conversation",
+                ModelProvider.DEEPSEEK,
+                "deepseek-v4-flash",
                 CREATED_AT,
                 CREATED_AT
         );
