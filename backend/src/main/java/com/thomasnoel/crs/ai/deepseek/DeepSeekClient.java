@@ -18,6 +18,7 @@ import java.util.Locale;
 
 import com.thomasnoel.crs.ai.ChatModelClient;
 import com.thomasnoel.crs.ai.ChatModelMessage;
+import com.thomasnoel.crs.ai.ChatProtocol;
 
 @Component
 public class DeepSeekClient implements ChatModelClient {
@@ -106,6 +107,11 @@ public class DeepSeekClient implements ChatModelClient {
         }
 
         return message.content();
+    }
+
+    @Override
+    public ChatProtocol protocol() {
+        return ChatProtocol.OPENAI_CHAT_COMPLETIONS;
     }
 
     @Override

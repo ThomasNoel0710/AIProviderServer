@@ -78,7 +78,7 @@ public class ConversationController {
             @PathVariable UUID conversationId,
             @Valid @RequestBody SendMessageRequest request
     ) {
-        return conversationService.sendMessage(
+        return conversationService.(
                 conversationId,
                 request.message()
         );
