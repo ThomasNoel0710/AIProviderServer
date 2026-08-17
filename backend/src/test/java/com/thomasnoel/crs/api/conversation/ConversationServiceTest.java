@@ -5,8 +5,11 @@ import java.util.List;
 import java.util.UUID;
 
 import com.thomasnoel.crs.ai.ChatModelClient;
+import com.thomasnoel.crs.ai.ChatModelClientRouter;
+import com.thomasnoel.crs.ai.ChatModelDefinition;
 import com.thomasnoel.crs.ai.ChatModelMessage;
 import com.thomasnoel.crs.ai.ChatModelRole;
+import com.thomasnoel.crs.ai.ChatProtocol;
 import com.thomasnoel.crs.ai.ModelCatalog;
 import com.thomasnoel.crs.ai.ModelProvider;
 import com.thomasnoel.crs.ai.UnsupportedModelException;
@@ -41,6 +44,9 @@ class ConversationServiceTest {
 
     @Mock
     private ChatModelClient chatModelClient;
+
+    @Mock
+    private ChatModelClientRouter chatModelClientRouter;
 
     @InjectMocks
     private ConversationService conversationService;
@@ -140,9 +146,26 @@ class ConversationServiceTest {
                 "Your name is Thomas.",
                 now.plusSeconds(3)
         );
+        ChatModelDefinition modelDefinition = new ChatModelDefinition(
+                ModelProvider.DEEPSEEK,
+                ChatProtocol.OPENAI_CHAT_COMPLETIONS,
+                "deepseek-v4-flash",
+                "DeepSeek-V4-Flash"
+        );
 
         when(conversationStore.getConversation(conversationId))
                 .thenReturn(conversation);
+        when(
+                modelCatalog.getModel(
+                        ModelProvider.DEEPSEEK,
+                        "deepseek-v4-flash"
+                )
+        ).thenReturn(modelDefinition);
+        when(
+                chatModelClientRouter.getClient(
+                        ChatProtocol.OPENAI_CHAT_COMPLETIONS
+                )
+        ).thenReturn(chatModelClient);
         when(
                 conversationStore.appendUserMessage(
                         conversationId,

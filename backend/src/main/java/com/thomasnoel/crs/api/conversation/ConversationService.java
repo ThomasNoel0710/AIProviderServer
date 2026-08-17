@@ -5,11 +5,13 @@ import java.util.Locale;
 import java.util.UUID;
 
 import com.thomasnoel.crs.ai.ChatModelClient;
+import com.thomasnoel.crs.ai.ChatModelClientRouter;
+import com.thomasnoel.crs.ai.ChatModelDefinition;
 import com.thomasnoel.crs.ai.ChatModelMessage;
 import com.thomasnoel.crs.ai.ChatModelRole;
 import com.thomasnoel.crs.ai.ModelCatalog;
-import com.thomasnoel.crs.ai.UnsupportedModelException;
 import com.thomasnoel.crs.ai.ModelProvider;
+import com.thomasnoel.crs.ai.UnsupportedModelException;
 import com.thomasnoel.crs.api.conversation.dto.ConversationDetailResponse;
 import com.thomasnoel.crs.api.conversation.dto.ConversationSummaryResponse;
 import com.thomasnoel.crs.api.conversation.dto.MessageResponse;
@@ -23,16 +25,16 @@ public class ConversationService {
 
     private final ConversationStore conversationStore;
     private final ModelCatalog modelCatalog;
-    private final ChatModelClient chatModelClient;
+    private final ChatModelClientRouter chatModelClientRouter;
 
     public ConversationService(
             ConversationStore conversationStore,
             ModelCatalog modelCatalog,
-            ChatModelClient chatModelClient
+            ChatModelClientRouter chatModelClientRouter
     ) {
         this.conversationStore = conversationStore;
         this.modelCatalog = modelCatalog;
-        this.chatModelClient = chatModelClient;
+        this.chatModelClientRouter = chatModelClientRouter;
     }
 
     public ConversationSummaryResponse createConversation(
@@ -93,6 +95,13 @@ public class ConversationService {
         ConversationEntity conversation = conversationStore.getConversation(
                 conversationId
         );
+        ChatModelDefinition modelDefinition = modelCatalog.getModel(
+                conversation.getProvider(),
+                conversation.getModelId()
+        );
+        ChatModelClient selectedClient = chatModelClientRouter.getClient(
+                modelDefinition.protocol()
+        );
         List<MessageEntity> history = conversationStore.appendUserMessage(
                 conversationId,
                 content
@@ -102,7 +111,7 @@ public class ConversationService {
                 .map(this::toChatModelMessage)
                 .toList();
 
-        String answer = chatModelClient.chat(modelId, chatModelMessages);
+        String answer = selectedClient.chat(modelId, chatModelMessages);
         MessageEntity assistantMessage =
                 conversationStore.appendAssistantMessage(
                         conversationId,
